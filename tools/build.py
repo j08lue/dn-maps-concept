@@ -5,7 +5,7 @@ Reads:  tools/source/*.src.html (saved copies of the dn.dk articles)
         tools/source/*.nominatim.geojson (OSM outlines fetched via Nominatim)
 Writes: skove.html, soeer.html, data/*.geojson
 """
-import html, json, re
+import hashlib, html, json, re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -262,7 +262,7 @@ HEAD = """<!doctype html>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v={v}">
 </head>
 """
 
@@ -296,7 +296,7 @@ FOOT = """<footer class="mock-footer"><p>Mockup lavet som forslag til Danmarks N
 Kort: <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a>, data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap-bidragydere</a>.</p></footer>
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script>window.PAGE = {config};</script>
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v={v}"></script>
 </body>
 </html>
 """
@@ -311,6 +311,10 @@ MAP_OVERVIEW = """<section class="map-block" aria-label="Kort over skovene">
 """
 
 
+# cache-busting tag: changes whenever the CSS or JS changes
+VERSION = hashlib.sha1(b"".join((ROOT / "assets" / f).read_bytes() for f in ("style.css", "app.js"))).hexdigest()[:8]
+
+
 def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
     title, blocks = parse_blocks(SRC / src)
     intro, groups, outro = group(blocks, spec)
@@ -320,7 +324,7 @@ def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
         p["card"] = wide(p["img"], 560) if p["img"] else ""
     (ROOT / "data" / f"{slug}-omraader.geojson").write_text(json.dumps(areas, ensure_ascii=False, separators=(",", ":")))
 
-    out = [HEAD.format(title=html.escape(crumb)), f'<body class="page--{mode}">',
+    out = [HEAD.format(title=html.escape(crumb), v=VERSION), f'<body class="page--{mode}">',
            HEADER.format(orig=orig, h1=html.escape(title), crumb=html.escape(crumb))]
     out.append('<main class="article">')
     if mode == "overview":
@@ -344,7 +348,7 @@ def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
     out += [render_block(b) for b in outro]
     out.append("</main>")
     config = {"mode": mode, "areas": f"data/{slug}-omraader.geojson", "places": places, "kindWord": kind_word}
-    out.append(FOOT.format(orig=orig, config=json.dumps(config, ensure_ascii=False)))
+    out.append(FOOT.format(orig=orig, config=json.dumps(config, ensure_ascii=False), v=VERSION))
     (ROOT / f"{slug}.html").write_text("\n".join(out))
     print(slug, len(places), "places,", len(areas["features"]), "outlines")
 
