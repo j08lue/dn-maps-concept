@@ -288,6 +288,7 @@ HEAD = """<!doctype html>
 
 HEADER = """<div class="mock-banner" id="mock-banner">
   <p><strong>Forslag:</strong> Sådan kunne guiden se ud med et kort. Dette er en mockup, ikke en officiel DN-side.
+  Tekst og fotos er kopieret fra DN's artikel og tilhører Danmarks Naturfredningsforening og de nævnte fotografer.
   <a href="{orig}">Se originalen på dn.dk</a></p>
   <button type="button" class="mock-banner__close" aria-label="Luk">×</button>
 </div>
