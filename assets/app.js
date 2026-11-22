@@ -137,7 +137,11 @@
     }
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (PAGE.mode === "overview") openPopup(p, true);
+      // first tap shows the card; tapping the same marker again opens the story
+      if (PAGE.mode === "overview") {
+        if (activeId === p.id && popup.isOpen()) scrollToPlace(p);
+        else openPopup(p, true);
+      }
       else scrollToPlace(p);
     });
     p.marker = new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map);
