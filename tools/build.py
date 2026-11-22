@@ -248,7 +248,7 @@ def place_heading(inner, place, tag="h3"):
     return (f'<{tag}{cls}>{inner}</{tag}>'
             f'<p class="place-meta"><button type="button" class="show-on-map" data-id="{place["id"]}">'
             f'<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>'
-            f'Vis på kortet</button><span class="distance" data-id="{place["id"]}" hidden></span></p>')
+            f'Vis på kortet</button></p>')
 
 
 HEAD = """<!doctype html>
@@ -307,11 +307,6 @@ MAP_OVERVIEW = """<section class="map-block" aria-label="Kort over skovene">
     <p>Tryk på et billede for at læse om skoven.</p>
   </div>
   <div class="map-frame"><div id="map" class="map"></div></div>
-  <div class="col nearest">
-    <button type="button" class="button locate">Find nærmeste skov</button>
-    <p class="nearest__status" role="status"></p>
-    <ol class="nearest__list" hidden></ol>
-  </div>
 </section>
 """
 
@@ -341,8 +336,6 @@ def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
         out.append('<div class="story__map"><div class="map-frame"><div id="map" class="map"></div>'
                    '<button type="button" class="map-toggle" aria-expanded="true">Skjul kort</button></div></div>')
         out.append('<div class="story__text">')
-        out.append(f'<div class="nearest nearest--story"><button type="button" class="button locate">Find nærmeste {kind_word}</button>'
-                   '<p class="nearest__status" role="status"></p><ol class="nearest__list" hidden></ol></div>')
         for p, g in zip(places, groups):
             out.append(f'<div class="place" id="{p["id"]}" data-id="{p["id"]}">')
             out += [render_block(b, p if i == 0 else None) for i, b in enumerate(g["blocks"])]

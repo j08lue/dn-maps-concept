@@ -31,7 +31,7 @@
     if (layer.type === "symbol" && layer.paint["text-color"]) layer.paint["text-color"] = "#55685a";
     // Danish place names instead of English ones
     if (layer.type === "symbol" && layer.layout?.["text-field"] && !layer.id.includes("shield")) {
-      layer.layout["text-field"] = ["coalesce", ["get", "name"], ["get", "name:latin"]];
+      layer.layout["text-field"] = ["coalesce", ["get", "name:da"], ["get", "name"], ["get", "name:latin"]];
     }
   }
 
@@ -50,10 +50,17 @@
       "CooperativeGesturesHandler.MobileHelpText": "Brug to fingre for at flytte kortet",
       "NavigationControl.ZoomIn": "Zoom ind",
       "NavigationControl.ZoomOut": "Zoom ud",
+      "GeolocateControl.FindMyLocation": "Vis min placering",
+      "GeolocateControl.LocationNotAvailable": "Din placering er ikke tilgængelig",
     },
   });
   map.touchZoomRotate.disableRotation();
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+  map.addControl(new maplibregl.GeolocateControl({
+    positionOptions: { enableHighAccuracy: false, timeout: 15000 },
+    fitBoundsOptions: { maxZoom: 9 },
+    trackUserLocation: false,
+  }), "top-left");
 
   const fillColor = isWater ? "#2f7fae" : "#4f8a45";
   map.on("load", () => {
@@ -83,11 +90,15 @@
     map.setPaintProperty("rivers", "line-color", ["case", is, "#1d5f8a", "#2f7fae"]);
   }
 
+  // Overview page: keep regional context (zoom ~7.5 on phones) instead of zooming to the feature.
+  // Story page: frame the lake or river itself.
   function focusPlace(p, opts = {}) {
     const duration = reduceMotion ? 0 : opts.duration ?? 1400;
-    const padding = opts.padding ?? 48;
-    if (p.bbox) {
-      map.fitBounds([[p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[3]]], { padding, maxZoom: 11.5, duration });
+    if (PAGE.mode === "overview") {
+      const zoom = innerWidth < 600 ? 6.4 : 7.2;
+      map.flyTo({ center: [p.lon, p.lat], zoom, offset: opts.offset || [0, 0], duration });
+    } else if (p.bbox) {
+      map.fitBounds([[p.bbox[0], p.bbox[1]], [p.bbox[2], p.bbox[3]]], { padding: 48, maxZoom: 11.5, duration });
     } else {
       map.flyTo({ center: [p.lon, p.lat], zoom: 11, duration });
     }
@@ -114,23 +125,25 @@
     }
     el.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (PAGE.mode === "overview") openPopup(p);
-      else document.getElementById(p.id).scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+      if (PAGE.mode === "overview") openPopup(p, true);
+      else scrollToPlace(p);
     });
     p.marker = new maplibregl.Marker({ element: el }).setLngLat([p.lon, p.lat]).addTo(map);
   }
 
-  // ---- overview popups ----
-  const popup = new maplibregl.Popup({ offset: 30, maxWidth: "270px", focusAfterOpen: false });
+  function scrollToPlace(p) {
+    document.getElementById(p.id).scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
+  }
+
+  // ---- overview popups: small card, the whole card links to the story ----
+  const popup = new maplibregl.Popup({ offset: 26, maxWidth: "200px", focusAfterOpen: false, className: "pop-wrap" });
   popup.on("close", () => setActive(null));
-  function openPopup(p) {
-    const dist = p.km != null ? `<span class="pop__dist">${fmtKm(p.km)} fra dig</span>` : "";
-    const dir = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lon}`;
+  function openPopup(p, recentre) {
+    // move the marker below the centre so the card above it fits inside the map
+    if (recentre) map.easeTo({ center: [p.lon, p.lat], offset: [0, 70], duration: reduceMotion ? 0 : 500 });
     popup.setLngLat([p.lon, p.lat]).setHTML(
-      `<div class="pop">${p.card ? `<img src="${p.card}" alt="">` : ""}<div class="pop__body">
-        <strong>${p.name}</strong>${dist}
-        <div class="pop__links"><a href="#${p.id}">Læs mere ↓</a><a href="${dir}" target="_blank" rel="noopener">Rutevejledning ↗</a></div>
-      </div></div>`).addTo(map);
+      `<a class="pop" href="#${p.id}">${p.card ? `<img src="${p.card}" alt="">` : ""}
+        <span class="pop__body"><strong>${p.name}</strong><span class="pop__more">Læs mere ↓</span></span></a>`).addTo(map);
     setActive(p.id);
   }
 
@@ -139,8 +152,9 @@
     const p = byId[btn.dataset.id];
     if (PAGE.mode === "overview") {
       document.querySelector(".map-block").scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth" });
-      focusPlace(p, { duration: 1600 });
-      map.once("moveend", () => openPopup(p));
+      popup.remove();
+      focusPlace(p, { duration: 1600, offset: [0, 70] });
+      map.once("moveend", () => openPopup(p, false));
     } else {
       expandMap();
       setActive(p.id);
@@ -153,20 +167,19 @@
     const story = document.querySelector(".story");
     const toggle = document.querySelector(".map-toggle");
     const sections = places.map((p) => document.getElementById(p.id));
-    let current = undefined;
+    let current;
     let frame = 0;
 
     function pick() {
       frame = 0;
-      const wide = innerWidth >= 960;
-      const line = innerHeight * (wide ? 0.45 : 0.62);
+      const line = innerHeight * (innerWidth >= 960 ? 0.45 : 0.62);
       let id = null;
       for (const s of sections) if (s.getBoundingClientRect().top < line) id = s.id;
       if (id === current) return;
       current = id;
       setActive(id);
       if (id) focusPlace(byId[id]);
-      else if (!located) showAll();
+      else showAll();
     }
     addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(pick); }, { passive: true });
     map.on("load", pick);
@@ -180,63 +193,4 @@
     window.expandMap = () => { if (story.classList.contains("story--collapsed")) toggle.click(); };
   }
   function expandMap() { window.expandMap?.(); }
-
-  // ---- Find nærmeste ----
-  let located = false;
-  let youMarker = null;
-  const coordsOf = {};
-  for (const f of areas.features) {
-    (coordsOf[f.properties.id] ||= []).push(...flatten(f.geometry.coordinates));
-  }
-  function flatten(c) { return typeof c[0] === "number" ? [c] : c.flatMap(flatten); }
-  function haversine(a, b) {
-    const R = 6371, toRad = (d) => (d * Math.PI) / 180;
-    const dLat = toRad(b[1] - a[1]), dLon = toRad(b[0] - a[0]);
-    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLon / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(h));
-  }
-  function fmtKm(km) { return km < 1 ? "under 1 km" : km < 10 ? `${km.toFixed(1).replace(".", ",")} km` : `${Math.round(km)} km`; }
-
-  document.querySelectorAll(".locate").forEach((btn) => btn.addEventListener("click", () => {
-    const status = document.querySelector(".nearest__status");
-    const list = document.querySelector(".nearest__list");
-    if (!navigator.geolocation) { status.textContent = "Din browser kan ikke finde din placering."; return; }
-    btn.disabled = true;
-    status.textContent = "Finder din placering …";
-    navigator.geolocation.getCurrentPosition((pos) => {
-      btn.disabled = false;
-      located = true;
-      const you = [pos.coords.longitude, pos.coords.latitude];
-      for (const p of places) {
-        const pts = coordsOf[p.id]?.length ? coordsOf[p.id] : [[p.lon, p.lat]];
-        p.km = Math.min(...pts.map((c) => haversine(you, c)));
-      }
-      const sorted = [...places].sort((a, b) => a.km - b.km);
-      document.querySelectorAll(".distance").forEach((s) => {
-        s.textContent = `${fmtKm(byId[s.dataset.id].km)} fra dig`;
-        s.hidden = false;
-      });
-      status.textContent = "Nærmest dig (i luftlinje):";
-      list.innerHTML = sorted.slice(0, 3)
-        .map((p) => `<li><a href="#${p.id}">${p.name}</a> <span>· ${fmtKm(p.km)}</span></li>`).join("");
-      list.hidden = false;
-      btn.textContent = "Opdater min placering";
-
-      const el = document.createElement("div");
-      el.className = "you";
-      el.title = "Du er her";
-      youMarker?.remove();
-      youMarker = new maplibregl.Marker({ element: el }).setLngLat(you).addTo(map);
-      expandMap();
-      const b = new maplibregl.LngLatBounds(you, you);
-      sorted.slice(0, 3).forEach((p) => b.extend([p.lon, p.lat]));
-      map.fitBounds(b, { padding: 60, maxZoom: 11, duration: reduceMotion ? 0 : 1400 });
-      if (PAGE.mode === "overview") setActive(sorted[0].id);
-    }, (err) => {
-      btn.disabled = false;
-      status.textContent = err.code === 1
-        ? "Du har ikke givet adgang til din placering. Tillad det i browseren, og prøv igen."
-        : "Vi kunne ikke finde din placering lige nu. Prøv igen om lidt.";
-    }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
-  }));
 })();
