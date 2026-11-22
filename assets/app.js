@@ -156,6 +156,11 @@
     popup.setLngLat([p.lon, p.lat]).setHTML(
       `<a class="pop" href="#${p.id}">${p.card ? `<img src="${p.card}" alt="">` : ""}
         <span class="pop__body"><strong>${p.name}</strong><span class="pop__more">Læs mere ↓</span></span></a>`).addTo(map);
+    // MapLibre puts popups outside the layer that handles gestures, so a pinch or
+    // two-finger drag on the card would zoom/scroll the page. Move the card into
+    // that layer (where markers already live) so the map gets those gestures.
+    const el = popup.getElement();
+    if (el && el.parentNode !== map.getCanvasContainer()) map.getCanvasContainer().appendChild(el);
     setActive(p.id);
   }
 
