@@ -62,6 +62,18 @@
     trackUserLocation: false,
   }), "top-left");
 
+  // "Vis alle": back to the whole of Denmark
+  map.addControl({
+    onAdd() {
+      const box = document.createElement("div");
+      box.className = "maplibregl-ctrl maplibregl-ctrl-group";
+      box.innerHTML = '<button type="button" class="show-all-btn" aria-label="Vis alle steder på kortet">Vis alle</button>';
+      box.firstChild.addEventListener("click", () => { popup.remove(); setActive(null); showAll(); });
+      return box;
+    },
+    onRemove() {},
+  }, "top-right");
+
   const fillColor = isWater ? "#2f7fae" : "#4f8a45";
   map.on("load", () => {
     // keep the attribution folded into the (i) button on small maps
@@ -163,34 +175,62 @@
   }));
 
   // ---- scrollytelling: follow the section being read ----
+  // On phones the map slides away while you read a section, and comes back
+  // when the next section starts or when you scroll back up.
   if (PAGE.mode === "scrolly") {
     const story = document.querySelector(".story");
     const toggle = document.querySelector(".map-toggle");
     const sections = places.map((p) => document.getElementById(p.id));
+    const isPhone = () => innerWidth < 960;
     let current;
+    let hiddenFor = null;   // the section the map was auto-hidden for (once per section)
+    let lastY = scrollY;
+    let upTravel = 0;
+    let downTravel = 0;
     let frame = 0;
 
-    function pick() {
-      frame = 0;
-      const line = innerHeight * (innerWidth >= 960 ? 0.45 : 0.62);
-      let id = null;
-      for (const s of sections) if (s.getBoundingClientRect().top < line) id = s.id;
-      if (id === current) return;
-      current = id;
-      setActive(id);
-      if (id) focusPlace(byId[id]);
-      else showAll();
-    }
-    addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(pick); }, { passive: true });
-    map.on("load", pick);
-
-    toggle.addEventListener("click", () => {
-      const collapsed = story.classList.toggle("story--collapsed");
+    function setCollapsed(collapsed) {
+      story.classList.toggle("story--collapsed", collapsed);
       toggle.textContent = collapsed ? "Vis kort" : "Skjul kort";
       toggle.setAttribute("aria-expanded", String(!collapsed));
-      if (!collapsed) setTimeout(() => map.resize(), 50);
-    });
-    window.expandMap = () => { if (story.classList.contains("story--collapsed")) toggle.click(); };
+    }
+    const collapsed = () => story.classList.contains("story--collapsed");
+
+    function onScroll() {
+      frame = 0;
+      const dy = scrollY - lastY;
+      lastY = scrollY;
+      const vh = innerHeight;
+
+      // which section is being read?
+      const line = vh * (isPhone() ? 0.8 : 0.45);
+      let id = null;
+      for (const s of sections) if (s.getBoundingClientRect().top < line) id = s.id;
+      if (id !== current) {
+        current = id;
+        setActive(id);
+        if (id) focusPlace(byId[id]);
+        else showAll();
+        if (isPhone()) setCollapsed(false);   // new place: show where it is
+      }
+      if (!isPhone()) return;
+
+      // reading on: the heading has slid up under the map, so hide the map
+      upTravel = dy < 0 ? upTravel - dy : 0;
+      downTravel = dy > 0 ? downTravel + dy : 0;
+      if (downTravel > 30 && id && hiddenFor !== id && !collapsed()) {
+        const top = document.getElementById(id).getBoundingClientRect().top;
+        if (top < vh * 0.36) { hiddenFor = id; setCollapsed(true); }
+      }
+      // scrolling back up: bring the map back
+      // (and let it hide again once you carry on reading)
+      if (upTravel > 80 && collapsed()) { setCollapsed(false); upTravel = 0; hiddenFor = null; }
+    }
+    addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(onScroll); }, { passive: true });
+    map.on("load", onScroll);
+
+    toggle.addEventListener("click", () => setCollapsed(!collapsed()));
+    window.expandMap = () => setCollapsed(false);
   }
   function expandMap() { window.expandMap?.(); }
 })();

@@ -148,23 +148,34 @@ p { margin: 0 0 1em; }
 
 /* ---------- scrollytelling (lakes page) ---------- */
 .story { position: relative; }
-.story__map { position: sticky; top: 0; z-index: 5; height: 40vh; height: 40svh; background: #e9efe6; border-bottom: 3px solid var(--kridt); }
-.story__map .map-frame, .story__map .map { height: 100%; max-width: none; }
+/* Phones: the map is a zero-height sticky layer floating over the text, so
+   sliding it away never shifts the text you are reading. */
+.story__map { position: sticky; top: 0; z-index: 5; height: 0; }
+.story__map .map-frame {
+  height: 40vh; height: 40svh; max-width: none; background: #e9efe6;
+  border-bottom: 3px solid var(--kridt); box-shadow: 0 2px 10px rgb(10 60 35 / .15);
+  transition: transform .35s ease;
+}
+.story__map .map { height: 100%; }
+.story__text { padding-top: calc(40svh + 8px); }
 .map-toggle {
   position: absolute; left: 10px; bottom: 10px; z-index: 2; border: 0; cursor: pointer;
   background: var(--kridt); color: var(--skov); border-radius: 20px; padding: 6px 14px; font-size: 15px; font-weight: 500;
   box-shadow: 0 1px 4px rgb(10 60 35 / .3);
 }
-.story--collapsed .story__map { height: 52px; }
-.story--collapsed .map { visibility: hidden; }
-.story--collapsed .map-toggle { bottom: 50%; transform: translateY(50%); }
+.story--collapsed .story__map .map-frame { transform: translateY(-100%); box-shadow: none; }
+.story--collapsed .map-toggle { bottom: auto; top: calc(100% + 10px); background: var(--skov); color: var(--kridt); }
 .story .place { scroll-margin-top: calc(40svh + 8px); }
-.story--collapsed .place { scroll-margin-top: 60px; }
+@media (prefers-reduced-motion: reduce) { .story__map .map-frame { transition: none; } }
+
+.show-all-btn.show-all-btn { width: auto; padding: 0 10px; font: 600 13px/29px var(--font); color: var(--skov); }
 
 @media (min-width: 960px) {
   .story { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "text map"; max-width: 1400px; margin: 0 auto; }
   .story__text { grid-area: text; min-width: 0; }
-  .story__map { grid-area: map; top: 16px; height: calc(100vh - 32px); margin: 16px var(--gutter-r) 16px 0; border: 0; border-radius: 6px; overflow: hidden; }
+  .story__map { grid-area: map; top: 16px; height: calc(100vh - 32px); margin: 16px var(--gutter-r) 16px 0; border-radius: 6px; overflow: hidden; }
+  .story__map .map-frame { height: 100%; border: 0; box-shadow: none; transform: none !important; }
+  .story__text { padding-top: 0; }
   .map-toggle { display: none; }
   .story .place { scroll-margin-top: 16px; }
   .story .card { grid-template-columns: 1fr; }
