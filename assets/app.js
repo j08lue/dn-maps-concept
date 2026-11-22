@@ -193,6 +193,7 @@
     const isPhone = () => innerWidth < 960;
     let current;
     let hiddenFor = null;   // the section the map was auto-hidden for (once per section)
+    let userHidden = false; // "Skjul kort" pressed: stay hidden until "Vis kort" or scrolling up
     let lastY = scrollY;
     let upTravel = 0;
     let downTravel = 0;
@@ -220,7 +221,7 @@
         setActive(id);
         if (id) focusPlace(byId[id]);
         else showAll();
-        if (isPhone()) setCollapsed(false);   // new place: show where it is
+        if (isPhone() && !userHidden) setCollapsed(false);   // new place: show where it is
       }
       if (!isPhone()) return;
 
@@ -233,13 +234,16 @@
       }
       // scrolling back up: bring the map back
       // (and let it hide again once you carry on reading)
-      if (upTravel > 80 && collapsed()) { setCollapsed(false); upTravel = 0; hiddenFor = null; }
+      if (upTravel > 80 && collapsed()) { setCollapsed(false); upTravel = 0; hiddenFor = null; userHidden = false; }
     }
     addEventListener("scroll", () => { if (!frame) frame = requestAnimationFrame(onScroll); }, { passive: true });
     map.on("load", onScroll);
 
-    toggle.addEventListener("click", () => setCollapsed(!collapsed()));
-    window.expandMap = () => setCollapsed(false);
+    toggle.addEventListener("click", () => {
+      userHidden = !collapsed();
+      setCollapsed(userHidden);
+    });
+    window.expandMap = () => { userHidden = false; setCollapsed(false); };
   }
   function expandMap() { window.expandMap?.(); }
 })();

@@ -44,6 +44,20 @@ SOEER = [
     ("tissoe", "Tissø", None, None, ["tissoe"]),
 ]
 
+# The fairy-tale post: coordinates from DN's own Google Maps embeds
+# (Ravnsby Bakker from OSM; its embed is zoomed far out).
+EVENTYR = [
+    ("troldeskoven", "Troldeskoven, Tisvilde", 56.0345, 12.0141, []),
+    ("dollerup-bakker", "Dollerup Bakker", 56.3712, 9.3105, []),
+    ("svartingedalen", "Svartingedalen", 55.1889, 14.7390, []),
+    ("moens-klint", "Møns Klint", 54.9841, 12.5415, []),
+    ("ravnsby-bakker", "Ravnsby Bakker", 54.8966, 11.3546, []),
+    ("raabjerg-mile", "Råbjerg Mile", 57.6482, 10.4037, []),
+    ("himmelbjerget", "Himmelbjerget", 56.1042, 9.6782, []),
+    ("mols-bjerge", "Mols Bjerge", 56.2980, 10.4955, []),
+    ("fur", "Fur", 56.8213, 8.9470, []),
+]
+
 # --- parsing DN's article markup ----------------------------------------
 
 def absolute(url):
@@ -72,7 +86,10 @@ def parse_blocks(path):
     parts = re.split(r'<div class="block-component', main)[1:]
     blocks = []
     for p in parts:
-        if "cta-component" in p:
+        if "script-component" in p and "<iframe" in p:
+            src = re.search(r'<iframe[^>]*src="([^"]+)"', p).group(1)
+            blocks.append({"type": "embed", "src": html.unescape(src)})
+        elif "cta-component" in p:
             h = re.search(r"<h2[^>]*>(.*?)</h2>", p, re.S)
             body = re.search(r'<section class="rte-component">(.*?)</section>', p, re.S)
             a = re.search(r'<a href="([^"]+)"[^>]*>(.*?)</a>', p, re.S)
@@ -240,6 +257,9 @@ def render_block(b, place=None):
     if t == "cta":
         return (f'<section class="cta cta--{b["bg"]}"><div class="cta__inner"><h2 class="h3">{html.escape(b["title"])}</h2>'
                 f'{b["body"]}<a class="button button--light" href="{b["href"]}">{html.escape(b["label"])}</a></div></section>')
+    if t == "embed":
+        return (f'<div class="embed"><iframe src="{html.escape(b["src"])}" loading="lazy" '
+                f'title="Google Maps-kort" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe></div>')
     raise ValueError(t)
 
 
@@ -301,10 +321,10 @@ Kort: <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.
 </html>
 """
 
-MAP_OVERVIEW = """<section class="map-block" aria-label="Kort over skovene">
+MAP_OVERVIEW = """<section class="map-block" aria-label="{label}">
   <div class="map-block__head col">
-    <h2 class="h3">Se skovene på kortet</h2>
-    <p>Tryk på et billede for at læse om skoven.</p>
+    <h2 class="h3">{heading}</h2>
+    <p>Tryk på et billede for at se stedet, og tryk igen for at læse mere.</p>
   </div>
   <div class="map-frame"><div id="map" class="map"></div></div>
 </section>
@@ -315,10 +335,10 @@ MAP_OVERVIEW = """<section class="map-block" aria-label="Kort over skovene">
 VERSION = hashlib.sha1(b"".join((ROOT / "assets" / f).read_bytes() for f in ("style.css", "app.js"))).hexdigest()[:8]
 
 
-def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
+def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word, map_heading=""):
     title, blocks = parse_blocks(SRC / src)
     intro, groups, outro = group(blocks, spec)
-    places, areas = make_places(spec, groups, outlines(SRC / shape_file))
+    places, areas = make_places(spec, groups, outlines(SRC / shape_file) if shape_file else {})
     for p in places:
         p["thumb"] = thumb(p["img"]) if p["img"] else ""
         p["card"] = wide(p["img"], 560) if p["img"] else ""
@@ -329,7 +349,7 @@ def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
     out.append('<main class="article">')
     if mode == "overview":
         out += [render_block(b) for b in intro]
-        out.append(MAP_OVERVIEW)
+        out.append(MAP_OVERVIEW.format(label=map_heading, heading=map_heading))
         for p, g in zip(places, groups):
             out.append(f'<div class="place" id="{p["id"]}" data-id="{p["id"]}">')
             out += [render_block(b, p if i == 0 else None) for i, b in enumerate(g["blocks"])]
@@ -355,7 +375,10 @@ def build(slug, src, spec, shape_file, mode, orig, crumb, kind_word):
 
 build("skove", "skove.src.html", SKOVE, "forests.nominatim.geojson", "overview",
       "https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/12-vidunderlige-skove-i-danmark/",
-      "12 vidunderlige skove i Danmark", "skov")
+      "12 vidunderlige skove i Danmark", "skov", "Se skovene på kortet")
 build("soeer", "soeer.src.html", SOEER, "water.nominatim.geojson", "scrolly",
       "https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/13-vidunderlige-soer-og-vandlob-i-danmark",
       "13 vidunderlige søer og vandløb i Danmark", "sø eller å")
+build("eventyr", "eventyr.src.html", EVENTYR, None, "overview",
+      "https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/9-steder-i-danmark-her-ligner-naturen-noget-fra-et-eventyr/",
+      "9 steder i Danmark, der ligner noget fra et eventyr", "sted", "Se de 9 steder på kortet")

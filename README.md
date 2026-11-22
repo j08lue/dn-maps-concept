@@ -3,6 +3,7 @@
 A mock-up showing how two of Danmarks Naturfredningsforening's guides could include a map of the places they recommend.
 
 - **[12 vidunderlige skove](https://j08lue.github.io/dn-maps-concept/skove.html)**: an overview map at the top with photo markers.
+- **[9 steder, der ligner noget fra et eventyr](https://j08lue.github.io/dn-maps-concept/eventyr.html)**: the post already has a Google Maps embed for each place; this adds one overview map at the top, like the forest page.
 - **[13 vidunderlige søer og vandløb](https://j08lue.github.io/dn-maps-concept/soeer.html)**: a map that follows along as you read (pinned at the top on phones, beside the text on desktop).
 
 Text and photos come from the original articles on dn.dk and belong to DN and the credited photographers. Photos are loaded directly from dn.dk.
@@ -13,6 +14,7 @@ Map: [MapLibre GL JS](https://maplibre.org), tiles from [OpenFreeMap](https://op
 ```bash
 curl -sL -o tools/source/skove.src.html https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/12-vidunderlige-skove-i-danmark/
 curl -sL -o tools/source/soeer.src.html https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/13-vidunderlige-soer-og-vandlob-i-danmark
+curl -sL -o tools/source/eventyr.src.html https://www.dn.dk/oplev-naturen/saerlige-naturoplevelser/9-steder-i-danmark-her-ligner-naturen-noget-fra-et-eventyr/
 python3 tools/build.py
 python3 -m http.server
 ```

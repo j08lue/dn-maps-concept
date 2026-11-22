@@ -104,6 +104,10 @@ p { margin: 0 0 1em; }
 
 .mock-footer { max-width: 1100px; margin: 0 auto; padding: 24px var(--gutter-r) 48px var(--gutter-l); font-size: 14px; color: var(--muted); }
 
+/* DN's existing Google Maps embeds (fairy-tale post) */
+.embed { max-width: calc(640px + 32px); margin: 24px auto 40px; padding-left: var(--gutter-l); padding-right: var(--gutter-r); }
+.embed iframe { display: block; width: 100%; aspect-ratio: 4 / 3; border: 0; background: #e9efe6; }
+
 /* ---------- place heading additions ---------- */
 .place { scroll-margin-top: 16px; }
 .place-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: -4px 0 18px; font-size: 16px; }
@@ -126,10 +130,13 @@ p { margin: 0 0 1em; }
 .marker {
   width: 46px; height: 46px; border-radius: 50%; padding: 0; cursor: pointer;
   border: 3px solid var(--kridt); background: var(--blad) center / cover no-repeat;
-  box-shadow: 0 2px 6px rgb(10 60 35 / .45); transition: scale .2s, border-color .2s; /* not transform: MapLibre positions markers with it */
+  box-shadow: 0 2px 6px rgb(10 60 35 / .45); transition: width .2s, height .2s, border-color .2s; /* never transform/scale: MapLibre positions markers with transform */
 }
-@media (max-width: 600px) { .marker { width: 40px; height: 40px; } }
-.marker:hover, .marker.is-active { scale: 1.25; border-color: var(--lys); z-index: 2; }
+.marker:hover, .marker.is-active { width: 58px; height: 58px; border-color: var(--lys); z-index: 2; }
+@media (max-width: 600px) {
+  .marker { width: 40px; height: 40px; }
+  .marker:hover, .marker.is-active { width: 50px; height: 50px; }
+}
 .marker__n {
   position: absolute; right: -8px; top: -8px; min-width: 22px; height: 22px; border-radius: 11px; padding: 0 5px;
   background: var(--skov); color: var(--kridt); font-size: 13px; line-height: 22px; font-weight: 600; text-align: center;
